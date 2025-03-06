@@ -7,7 +7,6 @@
     <style>
         body { text-align: center; font-family: Arial, sans-serif; }
         video { width: 90vw; max-width: 600px; border: 2px solid black; }
-        #ipDisplay { font-weight: bold; color: green; }
     </style>
 </head>
 <body>
@@ -18,41 +17,27 @@
         <option value="user">Front Camera</option>
     </select>
     <br><br>
-    <p>Your Device IP: <span id="ipDisplay">Detecting...</span></p>
+
+    <label for="pcIp">Enter PC IP:</label>
+    <input type="text" id="pcIp" placeholder="192.168.x.x">
     <label for="port">Port:</label>
     <input type="text" id="port" placeholder="8765" value="8765">
     <br><br>
+
     <button onclick="startStreaming()">Start Streaming</button>
     <br><br>
-    <video id="video" autoplay playsinline></video>
     
+    <video id="video" autoplay playsinline></video>
+
     <script>
-        async function getLocalIP() {
-            return new Promise((resolve) => {
-                const pc = new RTCPeerConnection({ iceServers: [] });
-                pc.createDataChannel("");
-                pc.createOffer().then(offer => pc.setLocalDescription(offer));
-
-                pc.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        const ipMatch = event.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
-                        if (ipMatch) {
-                            resolve(ipMatch[1]);
-                            pc.close();
-                        }
-                    }
-                };
-            });
-        }
-
         async function startStreaming() {
             const video = document.getElementById("video");
             const cameraSelect = document.getElementById("cameraSelect").value;
-            const ip = document.getElementById("ipDisplay").innerText;
+            const pcIp = document.getElementById("pcIp").value;
             const port = document.getElementById("port").value;
 
-            if (!ip || !port) {
-                alert("IP detection failed or Port missing.");
+            if (!pcIp || !port) {
+                alert("Please enter a valid PC IP and port.");
                 return;
             }
             
@@ -60,10 +45,10 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: cameraSelect } });
                 video.srcObject = stream;
                 
-                const ws = new WebSocket(`ws://${ip}:${port}`);
+                const ws = new WebSocket(`ws://${pcIp}:${port}`);
                 const canvas = document.createElement("canvas");
                 const ctx = canvas.getContext("2d");
-                
+
                 ws.onopen = () => {
                     console.log("Connected to server");
                     setInterval(() => {
@@ -73,16 +58,17 @@
                         canvas.toBlob(blob => ws.send(blob), "image/jpeg");
                     }, 100);
                 };
+
+                ws.onerror = (error) => {
+                    console.error("WebSocket Error:", error);
+                    alert("Failed to connect to the WebSocket server. Check the IP and port.");
+                };
+
             } catch (error) {
                 console.error("Error accessing camera: ", error);
+                alert("Failed to access the camera.");
             }
         }
-
-        getLocalIP().then(ip => {
-            document.getElementById("ipDisplay").innerText = ip;
-        }).catch(() => {
-            document.getElementById("ipDisplay").innerText = "Failed to detect IP";
-        });
     </script>
 </body>
 </html>
